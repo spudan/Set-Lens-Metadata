@@ -1,6 +1,8 @@
-# Set Lens Metadata Plugin for Lightroom
+# Set Lens Metadata Plugin for Adobe Lightroom Classic
 
-This Lightroom Classic plugin allows you to set lens metadata (e.g. lens name, focal length, aperture) on XMP sidecar files – especially useful for images taken with vintage or manual lenses that lack proper EXIF data.
+**Set Lens Metadata** is a lightweight and user-friendly plugin for **Adobe Lightroom Classic**, designed to help photographers manually add or correct lens information in metadata — especially for **vintage lenses**, **manual focus lenses**, or **third-party lenses** that don’t write EXIF data.
+
+This plugin leverages the power of **ExifTool** to write metadata directly into XMP sidecar files. It's ideal for photographers who use manual lenses with adapters on mirrorless or DSLR cameras, where essential metadata like lens name, focal length, or aperture is missing.
 
 ## ⚠ Disclaimer
 
@@ -12,7 +14,7 @@ I'm not a professional developer, just a photographer who needed a tool like thi
 ## ✨ Features
 
 - Add or update lens metadata via ExifTool
-- Supports presets for commonly used manual lenses
+- Supports presets for your own manual lenses
 - Designed for use with XMP sidecar files (RAW images)
 
 ---
@@ -60,6 +62,7 @@ After running the plugin:
 - Plugin writes to the `.xmp` files using ExifTool
 - Existing metadata is overwritten in-place
 - A warning will appear if any XMP file is missing
+- Tested on Windows only
 
 ---
 
