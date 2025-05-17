@@ -46,6 +46,8 @@ Before using the plugin, make sure metadata is saved to XMP sidecar files:
 
 The plugin uses ExifTool to update the XMP files.
 
+<img src="docs/screenshot.png" alt="Plugin Screenshot" width="400"/>
+
 ### 3. Reload Metadata
 After running the plugin:
 - Select the modified photos again
