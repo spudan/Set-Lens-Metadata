@@ -61,6 +61,8 @@ You can:
 
 Click **OK** to apply.
 
+<img src="docs/screenshot.png" alt="Plugin Screenshot" width="400"/>
+
 ### 3. Reload Metadata
 After running the plugin:
 - Select the modified photos again
