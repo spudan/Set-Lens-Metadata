@@ -18,7 +18,7 @@ This plugin leverages the power of **ExifTool** to write metadata directly into 
 - Works with multiple selected images
 
 ---
-
+ 
 ## ⚠ Disclaimer
 
 Use at your own risk.  
