@@ -19,7 +19,7 @@ local function findXMPPath(photoPath)
   return nil
 end
 
-function ExifToolCommand.writeMetadataBatch(photoList, lensName, focalLength, aperture, fnumber, serial)
+function ExifToolCommand.writeMetadataBatch(photoList, lensName, focalLength, aperture, fnumber, serial, focalLength35)
   LrTasks.startAsyncTask(function()
     local missing = {}
     local valid = {}
@@ -54,13 +54,17 @@ function ExifToolCommand.writeMetadataBatch(photoList, lensName, focalLength, ap
       local command = string.format(
         '%s -m -P -overwrite_original_in_place ' ..
         '-Lens="%s" -LensModel="%s" -LensType="%s" ' ..
-        '-FocalLength="%s" -MaxApertureValue="%s" -FNumber="%s" -LensSerialNumber="%s" ' ..
-        '"%s"',
+        '-FocalLength="%s" -MaxApertureValue="%s" -FNumber="%s" -LensSerialNumber="%s" ',
         exiftoolPath,
         lensName, lensName, lensName,
-        focalLength, aperture, fnumber, serial,
-        entry.xmp
+        focalLength, aperture, fnumber, serial
       )
+
+      if focalLength35 and tostring(focalLength35) ~= "" then
+        command = command .. string.format('-FocalLengthIn35mmFormat="%s" ', focalLength35)
+      end
+
+      command = command .. string.format('"%s"', entry.xmp)
 
       local result = LrTasks.execute(command)
       if result ~= 0 then
