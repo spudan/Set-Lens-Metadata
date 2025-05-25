@@ -27,33 +27,57 @@ local function runDialog()
       end
 
       local firstPhoto = selected[1]
-	  
-	  local cameraModel = firstPhoto:getFormattedMetadata("cameraModel") or ""
-	  local lensFromExif = firstPhoto:getFormattedMetadata("lens") or ""
-	  local focalFromExif = firstPhoto:getFormattedMetadata("focalLength") or ""
-	  local rawFNumber = firstPhoto:getFormattedMetadata("aperture") or ""
 
-	  local focalOnly = focalFromExif:match("^(%d+)") or ""
+      -- EXIF auslesen
+      local cameraModel = firstPhoto:getFormattedMetadata("cameraModel") or ""
+      local lensFromExif = firstPhoto:getFormattedMetadata("lens") or ""
+      local focalFromExif = firstPhoto:getFormattedMetadata("focalLength") or ""
+      local rawFNumber = firstPhoto:getFormattedMetadata("aperture") or ""
 
-	  local fnumberFromExif = rawFNumber:match("([%d,%.]+)") or ""
-	  fnumberFromExif = fnumberFromExif:gsub(",", ".")
+      local focalOnly = focalFromExif:match("^(%d+)") or ""
+      local fnumberFromExif = rawFNumber:match("([%d,%.]+)") or ""
+      fnumberFromExif = fnumberFromExif:gsub(",", ".")
 
-	  local hasMetadata = (lensFromExif and lensFromExif ~= "")
-	    or (focalOnly and focalOnly ~= "")
-	    or (fnumberFromExif and fnumberFromExif ~= "")
-		
-	  local preset = nil
-	  if hasMetadata and lensFromExif and prefs.presets[lensFromExif] then
-	    preset = prefs.presets[lensFromExif]
-	  end
+      local hasMetadata = (lensFromExif and lensFromExif ~= "")
+        or (focalOnly and focalOnly ~= "")
+        or (fnumberFromExif and fnumberFromExif ~= "")
 
-	  bind["lens"]     = hasMetadata and lensFromExif or ""
-	  bind["focal"]    = hasMetadata and (focalOnly ~= "" and focalOnly or (preset and preset.focal or "")) or ""
-	  bind["fnumber"]  = hasMetadata and (fnumberFromExif ~= "" and fnumberFromExif or (preset and preset.fnumber or "")) or ""
-	  bind["aperture"] = hasMetadata and (preset and preset.aperture or "") or ""
-	  bind["serial"]   = hasMetadata and (preset and preset.serial or "") or ""
+      local preset = nil
+      if hasMetadata and lensFromExif and prefs.presets[lensFromExif] then
+        preset = prefs.presets[lensFromExif]
+      end
+
+      bind["lens"] = hasMetadata and lensFromExif or ""
+      bind["focal"] = hasMetadata and (focalOnly ~= "" and focalOnly or (preset and preset.focal or "")) or ""
+      bind["fnumber"] = hasMetadata and (fnumberFromExif ~= "" and fnumberFromExif or (preset and preset.fnumber or "")) or ""
+      bind["aperture"] = hasMetadata and (preset and preset.aperture or "") or ""
+      bind["serial"] = hasMetadata and (preset and preset.serial or "") or ""
+      bind["focal35"] = (preset and preset.focal35) or ""
+      bind["focal35Manual"] = (preset and preset.focal35Manual) or false
 
       bind["selectedPreset"] = nil
+
+      bind:addObserver("selectedPreset", function(propertyTable, key, value)
+        local selected = value
+        if selected and prefs.presets[selected] then
+          local p = prefs.presets[selected]
+          bind.lens = p.lens or ""
+          bind.focal = p.focal or ""
+          bind.aperture = p.aperture or ""
+          bind.fnumber = p.fnumber or ""
+          bind.serial = p.serial or ""
+          bind.focal35Manual = p.focal35Manual or false
+
+          local crop = tonumber(bind.cameraCrop) or 1.0
+          local focal = tonumber(bind.focal)
+          local shouldCalculate = not bind.focal35Manual or not p.focal35 or p.focal35 == ""
+          if shouldCalculate and focal then
+            bind.focal35 = tostring(math.floor(focal * crop + 0.5))
+          else
+            bind.focal35 = p.focal35 or ""
+          end
+        end
+      end)
 
       bind["cameraName"] = cameraModel
       bind["cameraCrop"] = prefs.cameraPresets[cameraModel] and tostring(prefs.cameraPresets[cameraModel]) or "1.0"
@@ -63,14 +87,18 @@ local function runDialog()
 
       local function updatePresetNames()
         local names = {}
-        for name, _ in pairs(prefs.presets) do table.insert(names, name) end
+        for name, _ in pairs(prefs.presets) do
+          table.insert(names, name)
+        end
         table.sort(names)
         bind["presetNames"] = names
       end
 
       local function updateCameraPresetNames()
         local names = {}
-        for name, _ in pairs(prefs.cameraPresets) do table.insert(names, name) end
+        for name, _ in pairs(prefs.cameraPresets) do
+          table.insert(names, name)
+        end
         table.sort(names)
         bind["cameraPresetNames"] = names
       end
@@ -78,11 +106,8 @@ local function runDialog()
       local function updateCropInfo()
         local crop = tonumber(bind.cameraCrop) or 1.0
         local focal = tonumber(bind.focal)
-        if focal then
-          local eq = math.floor(focal * crop + 0.5)
-          bind.cropInfo = string.format("Kamera: %s (Crop %.1fx) → %.0f mm (35mm format)", bind.cameraName, crop, eq)
-        else
-          bind.cropInfo = ""
+        if not bind.focal35Manual and focal then
+          bind.focal35 = tostring(math.floor(focal * crop + 0.5))
         end
       end
 
@@ -92,14 +117,16 @@ local function runDialog()
 
       bind:addObserver("cameraCrop", updateCropInfo)
       bind:addObserver("focal", updateCropInfo)
+      bind:addObserver("focal35Manual", updateCropInfo)
+      bind:addObserver("focal", function() end)
 
       if #selected > 1 then
-        LrDialogs.message(
-          "Hinweis: Mehrere Bilder ausgewählt",
-          "Die angezeigten Werte stammen vom ersten ausgewählten Bild. Sie können bei den anderen Bildern abweichen.",
-          "info"
-        )
-      end
+	  LrDialogs.message(
+	    "Note: Multiple images selected",
+	    "The displayed values are from the first selected image. They may differ for the other images.",
+	    "info"
+	  )
+	end
 
       local contents = f:column {
         spacing = f:control_spacing(),
@@ -111,20 +138,6 @@ local function runDialog()
             value = LrView.bind("selectedPreset"),
             width = 300,
             title = "Load Lens:",
-          },
-          f:push_button {
-            title = "Load",
-            action = function()
-              local selected = bind.selectedPreset
-              if selected and prefs.presets[selected] then
-                local p = prefs.presets[selected]
-                bind.lens = p.lens or ""
-                bind.focal = p.focal or ""
-                bind.aperture = p.aperture or ""
-                bind.fnumber = p.fnumber or ""
-                bind.serial = p.serial or ""
-              end
-            end
           },
           f:push_button {
             title = "Delete Preset",
@@ -140,7 +153,7 @@ local function runDialog()
         },
 
         f:row { f:static_text { title = "Lens:", width = 100 }, f:edit_field { value = LrView.bind("lens"), width_in_chars = 30 } },
-        f:row { f:static_text { title = "Focal Length:", width = 100 }, f:edit_field { value = LrView.bind("focal"), width_in_chars = 10 } },
+        f:row { f:static_text { title = "Focal Length:", width = 100 }, f:edit_field { value = LrView.bind("focal"), width_in_chars = 10, immediate = true } },
         f:row { f:static_text { title = "Max Aperture:", width = 100 }, f:edit_field { value = LrView.bind("aperture"), width_in_chars = 10 } },
         f:row { f:static_text { title = "FNumber:", width = 100 }, f:edit_field { value = LrView.bind("fnumber"), width_in_chars = 10 } },
         f:row { f:static_text { title = "Serial Number:", width = 100 }, f:edit_field { value = LrView.bind("serial"), width_in_chars = 20 } },
@@ -155,7 +168,9 @@ local function runDialog()
                 focal = bind.focal,
                 aperture = bind.aperture,
                 fnumber = bind.fnumber,
-                serial = bind.serial
+                serial = bind.serial,
+                focal35 = bind.focal35,
+                focal35Manual = bind.focal35Manual
               }
               bind.selectedPreset = bind.lens
               updatePresetNames()
@@ -165,30 +180,33 @@ local function runDialog()
 
         f:spacer { height = 20 },
 
-    f:row {
-		  f:static_text { title = "Camera:", width = 100 },
-		  f:edit_field {
-			value = LrView.bind("cameraName"),
-			width_in_chars = 30,
-			enabled = false,
-		  },
+        f:row {
+		  f:static_text { title = "Only relevant for Crop-Sensor Cameras or Special Lenses", fill_horizontal = 1 },
 		},
+		
 		f:row {
-		  f:static_text { title = "Crop Factor:", width = 100 },
-		  f:edit_field {
-			value = LrView.bind("cameraCrop"),
-			width_in_chars = 6,
-			immediate = true,
-		  },
-		},
-		f:row {
-		  f:static_text {
-			title = LrView.bind("cropInfo"),
-			fill_horizontal = 1,
-		  }
-		},
+          f:static_text { title = "Camera:", width = 100 },
+          f:edit_field {
+            value = LrView.bind("cameraName"),
+            width_in_chars = 30,
+            enabled = false,
+          },
+        },
 
-        
+        f:row {
+          f:static_text { title = "Crop Factor:", width = 100 },
+          f:edit_field { value = LrView.bind("cameraCrop"), width_in_chars = 6, immediate = true }
+        },
+
+        f:row {
+          f:static_text { title = "Focal Length (35mm equivalent):", width = 200 },
+          f:edit_field {
+            value = LrView.bind("focal35"),
+            width_in_chars = 8,
+            enabled = LrView.bind("focal35Manual")
+          },
+          f:checkbox { title = "Set manually", value = LrView.bind("focal35Manual") },
+        },
       }
 
       local result = LrDialogs.presentModalDialog {
@@ -200,11 +218,11 @@ local function runDialog()
         local function isNumber(v) return v:match("^%d+%.?%d*$") ~= nil end
         local function isInteger(v) return v:match("^%d+$") ~= nil end
 
-		local camName = bind.cameraName
-		local camCrop = tonumber(bind.cameraCrop)
-		if camName ~= "" and camCrop and camCrop > 0 then
-		  prefs.cameraPresets[camName] = camCrop
-		end
+        local camName = bind.cameraName
+        local camCrop = tonumber(bind.cameraCrop)
+        if camName ~= "" and camCrop and camCrop > 0 then
+          prefs.cameraPresets[camName] = camCrop
+        end
 
         if bind.focal ~= "" and not isInteger(bind.focal) then
           LrDialogs.message("Invalid Focal Length", "Please enter a whole number.", "warning")
@@ -221,17 +239,7 @@ local function runDialog()
           return
         end
 
-        prefs.lastLens = bind.lens
-        prefs.lastFocal = bind.focal
-        prefs.lastAperture = bind.aperture
-        prefs.lastFNumber = bind.fnumber
-        prefs.lastSerial = bind.serial
-
-        local crop = tonumber(bind.cameraCrop) or 1.0
-        local focal35 = nil
-        if bind.focal ~= "" then
-          focal35 = math.floor(tonumber(bind.focal) * crop + 0.5)
-        end
+        local focal35 = bind.focal35Manual and bind.focal35 or (tonumber(bind.focal) and math.floor(tonumber(bind.focal) * (tonumber(bind.cameraCrop) or 1.0) + 0.5))
 
         ExifToolCommand.writeMetadataBatch(
           selected,
