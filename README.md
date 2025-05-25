@@ -61,7 +61,7 @@ You can:
 
 Click **OK** to apply.
 
-<img src="docs/screenshot2.png" alt="Plugin Screenshot" width="400"/>
+<img src="docs/screenshot3.png" alt="Plugin Screenshot" width="400"/>
 
 ### 3. Reload Metadata
 After running the plugin:
